@@ -1,59 +1,63 @@
-const axios = require('axios');
-const Tesseract = require('tesseract.js');
+import React, { useState } from 'react';
+import axios from 'axios';
 
-exports.handler = async function(event, context) {
-  if (event.httpMethod !== 'POST') {
-    return { 
-      statusCode: 405, 
-      body: JSON.stringify({ error: 'Méthode non autorisée' })
-    };
-  }
+export default function ImageUpload() {
+  const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
 
-  try {
-    const { file } = JSON.parse(event.body);
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    setImage(file);
+  };
 
-    // OCR avec Tesseract.js
-    const { data: { text } } = await Tesseract.recognize(
-      file,
-      'fra',
-      { logger: m => console.log(m) }
-    );
+  const handleUpload = async () => {
+    if (!image) {
+      alert('Sélectionnez une image');
+      return;
+    }
 
-    // Envoi à GPT-4
-    const gptResponse = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-4',
-        messages: [{
-          role: 'user',
-          content: `Analyse ce profil Vinted : ${text}\nExtrait: prix, état, nombre de ventes, évaluations`
-        }],
-        max_tokens: 150,
-        temperature: 0.7
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('file', image);
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        data: gptResponse.data.choices[0].message.content
-      })
-    };
+    try {
+      const response = await axios.post('/.netlify/functions/analyzeImage', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setData(response.data.data);
+    } catch (error) {
+      console.error('Erreur upload:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  } catch (error) {
-    console.error(error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'Erreur lors du traitement de l\'image' 
-      })
-    };
-  }
-};
+  return (
+    <div className="p-4 bg-white rounded-lg shadow">
+      <input
+        type="file"
+        onChange={handleImageChange}
+        accept="image/*"
+        className="mb-4"
+      />
+      
+      <button
+        onClick={handleUpload}
+        disabled={loading}
+        className="w-full p-2 bg-blue-500 text-white rounded"
+      >
+        {loading ? 'Analyse...' : 'Analyser l\'image'}
+      </button>
+
+      {data && (
+        <div className="mt-4">
+          <h3 className="font-bold">Résultats :</h3>
+          <pre className="bg-gray-100 p-2 rounded">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
