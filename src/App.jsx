@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ImageUpload from './components/ImageUpload';
 import Dashboard from './components/Dashboard';
 
-export default function App() {
+export default function App() {    // Notez le 'A' majuscule ici
   const [analysisData, setAnalysisData] = useState(null);
 
   return (
