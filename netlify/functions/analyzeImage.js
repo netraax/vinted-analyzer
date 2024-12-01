@@ -1,35 +1,40 @@
 const axios = require('axios');
 const Tesseract = require('tesseract.js');
 
-exports.handler = async function(event) {
-  // Log pour déboguer
+exports.handler = async function (event) {
   console.log('Fonction appelée avec event:', event);
 
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: 'Méthode non autorisée' })
+      body: JSON.stringify({ error: 'Méthode non autorisée' }),
     };
   }
 
   try {
-    // Déboguer le contenu reçu
-    console.log('Body reçu:', event.body);
-
+    // Parse les données reçues
     const formData = event.body;
-    const buffer = Buffer.from(formData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+    if (!formData) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Aucune image reçue' }),
+      };
+    }
 
-    // Log pour confirmation
+    // Convertir l'image base64 en buffer
+    const buffer = Buffer.from(formData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
     console.log('Image reçue et convertie en buffer');
 
-    // OCR avec Tesseract
-    const { data: { text } } = await Tesseract.recognize(
-      buffer,
-      'fra',
-      { 
-        logger: m => console.log('Tesseract log:', m)
-      }
+    // Ajout d'un timeout manuel pour Tesseract
+    const tesseractPromise = Tesseract.recognize(buffer, 'fra', {
+      logger: (m) => console.log('Tesseract log:', m),
+    });
+
+    const tesseractTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tesseract timeout')), 9000) // Timeout à 9 secondes pour éviter un dépassement
     );
+
+    const { data: { text } } = await Promise.race([tesseractPromise, tesseractTimeout]);
 
     console.log('Texte extrait:', text);
 
@@ -38,9 +43,10 @@ exports.handler = async function(event) {
       'https://api.openai.com/v1/chat/completions',
       {
         model: 'gpt-4',
-        messages: [{
-          role: 'user',
-          content: `Analyse ce profil Vinted et retourne un JSON avec:
+        messages: [
+          {
+            role: 'user',
+            content: `Analyse ce profil Vinted et retourne un JSON avec:
             nombre_articles_en_vente,
             nombre_ventes_realisees,
             note_moyenne,
@@ -49,43 +55,48 @@ exports.handler = async function(event) {
             categorie_principale,
             prix_moyen.
             
-            Texte du profil: ${text}`
-        }],
-        temperature: 0.3
+            Texte du profil: ${text}`,
+          },
+        ],
+        temperature: 0.3,
       },
       {
         headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
       }
     );
 
     console.log('Réponse GPT reçue');
-
     const analyzedData = gptResponse.data.choices[0].message.content;
-    console.log('Données analysées:', analyzedData);
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
       },
       body: JSON.stringify({
         success: true,
-        data: analyzedData
-      })
+        data: analyzedData,
+      }),
     };
 
   } catch (error) {
     console.error('Erreur:', error);
+
+    // Gestion des erreurs spécifiques pour Tesseract
+    const errorMessage = error.message === 'Tesseract timeout'
+      ? 'Le traitement OCR a dépassé la limite de temps'
+      : 'Erreur lors de l\'analyse';
+
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: 'Erreur lors de l\'analyse',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne'
-      })
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne',
+      }),
     };
   }
 };
