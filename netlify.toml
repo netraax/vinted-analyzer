@@ -4,11 +4,11 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "16"
+  NODE_VERSION = "18"
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["tesseract.js"]
+  external_node_modules = ["tesseract.js", "sharp"]
 
 [[redirects]]
   from = "/api/*"
@@ -28,4 +28,4 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
