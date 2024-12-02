@@ -3,7 +3,7 @@ name: Déploiement Vinted Analyzer
 on:
   push:
     branches:
-      - main  # ou votre branche principale
+      - main  
 
 jobs:
   deploy:
@@ -16,7 +16,7 @@ jobs:
     - name: Installer Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18'  # ou la version que vous utilisez
+        node-version: '18'  
 
     - name: Installer les dépendances
       run: |
@@ -25,8 +25,10 @@ jobs:
     - name: Configurer les variables d'environnement
       run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
 
+    - name: Vérifier la clé API
+      run: echo "OPENAI_API_KEY est : $OPENAI_API_KEY"  
+
     - name: Déployer
       run: |
-        # Ajoutez ici votre commande de déploiement
         npm run build
         npm run deploy  # ou une commande qui déploie votre app
