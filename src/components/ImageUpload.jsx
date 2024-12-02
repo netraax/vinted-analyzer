@@ -2,12 +2,26 @@ import React, { useState } from 'react';
 
 export default function ImageUpload() {
   const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez télécharger un fichier image valide.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // Limite 5 Mo
+      alert('Veuillez télécharger une image de moins de 5 Mo.');
+      return;
+    }
+
+    setImage(file);
+    setPreview(URL.createObjectURL(file)); // Prévisualisation
 
     setLoading(true);
     const formData = new FormData();
@@ -16,13 +30,22 @@ export default function ImageUpload() {
     try {
       const response = await fetch('/.netlify/functions/analyzeImage', {
         method: 'POST',
-        body: formData
+        body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error(`Erreur serveur : ${response.statusText}`);
+      }
+
       const result = await response.json();
+      if (typeof result.data !== 'object') {
+        throw new Error('Les données retournées ne sont pas valides.');
+      }
+
       setData(result.data);
     } catch (error) {
       console.error('Erreur:', error);
+      alert('Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
@@ -48,10 +71,16 @@ export default function ImageUpload() {
           </span>
         </label>
 
+        {preview && (
+          <div className="mt-4">
+            <img src={preview} alt="Prévisualisation" className="max-w-full h-auto rounded" />
+          </div>
+        )}
+
         {loading && (
-          <div className="mt-6">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-gray-600 mt-2">Analyse en cours...</p>
+          <div className="mt-6 flex flex-col items-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+            <p className="text-gray-600 mt-2">Analyse en cours... Cela peut prendre quelques secondes.</p>
           </div>
         )}
 
