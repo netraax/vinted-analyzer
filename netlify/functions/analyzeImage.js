@@ -95,7 +95,7 @@ exports.handler = async function (event) {
           
           Texte du profil : ${text}`,
         }],
-        max_tokens: 1000,
+        max_tokens: 5000,
         temperature: 0.3
       },
       {
