@@ -1,66 +1,96 @@
-import React, { useState } from 'react';
+const axios = require('axios');
+const Tesseract = require('tesseract.js');
 
-export default function ImageUpload() {
-  const [image, setImage] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(null);
+exports.handler = async function (event) {
+  console.log('Fonction appelée avec event:', event);
 
-  const handleImageUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  // Vérifie que la méthode est POST
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Méthode non autorisée. Utilisez POST.' }),
+    };
+  }
 
-    setLoading(true);
+  try {
+    // Parse le corps de la requête
+    const body = JSON.parse(event.body);
+    const { image } = body;
 
-    try {
-      // Conversion en base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = (error) => reject(error);
-        reader.readAsDataURL(file);
-      });
-
-      // Envoi à la fonction Netlify
-      const response = await fetch('/.netlify/functions/analyzeImage', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ image: base64 })
-      });
-
-      const result = await response.json();
-      setData(result.data);
-    } catch (error) {
-      console.error('Erreur:', error);
-    } finally {
-      setLoading(false);
+    if (!image) {
+      throw new Error('Aucune image reçue dans la requête.');
     }
-  };
 
-  return (
-    <div className="p-4 bg-white rounded-lg shadow">
-      <input
-        type="file"
-        onChange={handleImageUpload}
-        accept="image/*"
-        className="mb-4"
-      />
-      
-      {loading && (
-        <div className="text-center">
-          <p>Analyse en cours...</p>
-        </div>
-      )}
+    // Conversion de l'image base64 en buffer
+    const buffer = Buffer.from(image.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+    console.log('Image reçue et convertie en buffer.');
 
-      {data && (
-        <div className="mt-4">
-          <h3 className="font-bold">Résultats de l'analyse :</h3>
-          <pre className="bg-gray-100 p-2 rounded mt-2">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        </div>
-      )}
-    </div>
-  );
-}
+    // OCR avec Tesseract.js
+    const { data: { text } } = await Tesseract.recognize(buffer, 'fra', {
+      logger: (m) => console.log('Tesseract log:', m),
+    });
+
+    console.log('Texte extrait par Tesseract:', text);
+
+    // Analyse du texte avec l'API OpenAI
+    const gptResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'user',
+            content: `Analyse ce profil Vinted et retourne un JSON avec :
+              nombre_articles_en_vente,
+              nombre_ventes_realisees,
+              note_moyenne,
+              nombre_evaluations,
+              pays_vendeur,
+              categorie_principale,
+              prix_moyen.
+
+              Texte du profil : ${text}`,
+          },
+        ],
+        temperature: 0.3,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log('Réponse OpenAI reçue.');
+
+    // Extraction des données analysées
+    const analyzedData = gptResponse.data.choices[0].message.content;
+
+    console.log('Données analysées:', analyzedData);
+
+    // Retourne les données
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({ success: true, data: analyzedData }),
+    };
+  } catch (error) {
+    console.error('Erreur dans analyzeImage:', error.message);
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: JSON.stringify({
+        error: 'Erreur lors de l\'analyse',
+        details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne',
+      }),
+    };
+  }
+};
