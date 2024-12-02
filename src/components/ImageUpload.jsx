@@ -10,12 +10,16 @@ export default function ImageUpload() {
     const file = event.target.files[0];
     if (!file) return;
 
+    console.log("Fichier sélectionné :", file); // Vérifie le fichier
+
+    // Vérifie si le fichier est une image
     if (!file.type.startsWith('image/')) {
       alert('Veuillez télécharger un fichier image valide.');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // Limite 5 Mo
+    // Vérifie si la taille du fichier est inférieure à 5 Mo
+    if (file.size > 5 * 1024 * 1024) {
       alert('Veuillez télécharger une image de moins de 5 Mo.');
       return;
     }
@@ -28,23 +32,31 @@ export default function ImageUpload() {
     formData.append('file', file);
 
     try {
+      console.log("Envoi de l'image à l'API d'analyse...");
       const response = await fetch('/.netlify/functions/analyzeImage', {
         method: 'POST',
         body: formData,
       });
+
+      // Log la réponse brute de l'API
+      console.log("Réponse brute de l'API :", response); 
 
       if (!response.ok) {
         throw new Error(`Erreur serveur : ${response.statusText}`);
       }
 
       const result = await response.json();
+
+      // Log les données reçues de l'API
+      console.log("Données reçues de l'API :", result);
+
       if (typeof result.data !== 'object') {
         throw new Error('Les données retournées ne sont pas valides.');
       }
 
       setData(result.data);
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur lors de l’analyse :', error); // Log des erreurs
       alert('Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setLoading(false);
@@ -96,31 +108,3 @@ export default function ImageUpload() {
     </div>
   );
 }
-const handleImageUpload = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  console.log("Fichier sélectionné :", file); // Vérifie le fichier
-
-  setLoading(true);
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const response = await fetch('/.netlify/functions/analyzeImage', {
-      method: 'POST',
-      body: formData,
-    });
-
-    console.log("Réponse brute de l'API :", response); // Vérifie la réponse brute
-
-    const result = await response.json();
-    console.log("Données reçues de l'API :", result); // Vérifie les données reçues
-
-    setData(result.data);
-  } catch (error) {
-    console.error('Erreur lors de l’analyse :', error); // Vérifie les erreurs
-  } finally {
-    setLoading(false);
-  }
-};
