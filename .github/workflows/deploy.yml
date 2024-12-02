@@ -1,0 +1,32 @@
+name: Déploiement Vinted Analyzer
+
+on:
+  push:
+    branches:
+      - main  # ou votre branche principale
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Vérifier le code
+      uses: actions/checkout@v3
+
+    - name: Installer Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'  # ou la version que vous utilisez
+
+    - name: Installer les dépendances
+      run: |
+        npm install
+
+    - name: Configurer les variables d'environnement
+      run: echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+
+    - name: Déployer
+      run: |
+        # Ajoutez ici votre commande de déploiement
+        npm run build
+        npm run deploy  # ou une commande qui déploie votre app
