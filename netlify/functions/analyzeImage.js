@@ -34,7 +34,7 @@ exports.handler = async function (event) {
    console.log('Texte extrait:', text);
 
    const gptResponse = await axios.post(
-     'https://api.openai.com/v1/engines/gpt-4/completions', // URL modifiée
+     'https://api.openai.com/v1/chat/completions', // URL modifiée
      {
        prompt: `Analyse ce profil Vinted et retourne exactement ce JSON :
          {
