@@ -96,3 +96,31 @@ export default function ImageUpload() {
     </div>
   );
 }
+const handleImageUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  console.log("Fichier sélectionné :", file); // Vérifie le fichier
+
+  setLoading(true);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await fetch('/.netlify/functions/analyzeImage', {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log("Réponse brute de l'API :", response); // Vérifie la réponse brute
+
+    const result = await response.json();
+    console.log("Données reçues de l'API :", result); // Vérifie les données reçues
+
+    setData(result.data);
+  } catch (error) {
+    console.error('Erreur lors de l’analyse :', error); // Vérifie les erreurs
+  } finally {
+    setLoading(false);
+  }
+};
