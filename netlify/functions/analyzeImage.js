@@ -62,7 +62,8 @@ exports.handler = async function (event) {
       }
     );
 
-    console.log('Réponse OpenAI reçue.');
+    // Ajout d'un log pour vérifier la réponse de GPT-4 avant de tenter de la parser
+    console.log("Réponse brute d'OpenAI:", gptResponse.data);
 
     // Extraction des données analysées
     const analyzedData = gptResponse.data.choices[0].message.content;
@@ -92,33 +93,5 @@ exports.handler = async function (event) {
         details: process.env.NODE_ENV === 'development' ? error.message : 'Erreur interne',
       }),
     };
-  }
-};
-const handleImageUpload = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  console.log("Fichier sélectionné :", file); // Vérifie le fichier
-
-  setLoading(true);
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const response = await fetch('/.netlify/functions/analyzeImage', {
-      method: 'POST',
-      body: formData,
-    });
-
-    console.log("Réponse brute de l'API :", response); // Vérifie la réponse brute
-
-    const result = await response.json();
-    console.log("Données reçues de l'API :", result); // Vérifie les données reçues
-
-    setData(result.data);
-  } catch (error) {
-    console.error('Erreur lors de l’analyse :', error); // Vérifie les erreurs
-  } finally {
-    setLoading(false);
   }
 };
