@@ -1,74 +1,77 @@
-const Tesseract = require('tesseract.js');
-const sharp = require('sharp');
+import React from 'react';
 
-// Fonction de prétraitement de l'image
-const preprocessImage = async (buffer) => {
-  return await sharp(buffer)
-    .resize({ width: 800 }) // Uniformiser la taille
-    .greyscale() // Convertir en niveaux de gris
-    .normalize() // Améliorer le contraste
-    .threshold(150) // Ajuster le seuil pour binarisation
-    .toBuffer();
-};
-
-// Fonction pour analyser le texte extrait
-function parseVintedProfile(text) {
-  const patterns = {
-    boutique: /^([\w\s-]+)/,
-    articles: /(\d+)\s*(?:article|articles?)/i,
-    evaluations: /(\d+)\s*(?:évaluation|éval|évals?)/i,
-    etoiles: /(\d+(?:[.,]\d+)?)\s*\/\s*5/, // Gérer les virgules comme séparateurs décimaux
-    abonnes: /(\d+)\s*(?:Abonnés?|Followers?)/i,
-    abonnements: /(\d+)\s*(?:Abonnements?|Following)/i,
-    lieu: /(France|Espagne|Italie|Allemagne|Portugal|Belgique|Suisse|Luxembourg)/i
-  };
-
-  const nombreEvaluations = parseInt(text.match(patterns.evaluations)?.[1] || '0');
-
-  return {
-    stats: {
-      nom_boutique: text.match(patterns.boutique)?.[1]?.trim() || 'Inconnu',
-      total_articles: parseInt(text.match(patterns.articles)?.[1] || '0'),
-      nombre_ventes: nombreEvaluations, // Équivalence évaluations = ventes
-      nombre_commentaires: nombreEvaluations, // Équivalence évaluations = commentaires
-      note: text.match(patterns.etoiles)?.[1]?.replace(',', '.') || 'N/A', // Conversion virgule -> point
-      abonnes: parseInt(text.match(patterns.abonnes)?.[1] || '0'),
-      abonnements: parseInt(text.match(patterns.abonnements)?.[1] || '0'),
-      pays: text.match(patterns.lieu)?.[1] || 'Non spécifié'
-    }
-  };
-}
-
-// Fonction principale d'analyse
-exports.handler = async function (event) {
-  try {
-    const body = JSON.parse(event.body);
-    const rawBuffer = Buffer.from(body.image.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    console.log("Image reçue, taille :", rawBuffer.length);
-
-    const optimizedBuffer = await preprocessImage(rawBuffer);
-    console.log("Prétraitement terminé, taille optimisée :", optimizedBuffer.length);
-
-    const { data: { text } } = await Tesseract.recognize(optimizedBuffer, 'fra', {
-      logger: (info) => console.log(info), // Optionnel : suivi de la progression
-      tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789éàèùç/.,: '
-    });
-    console.log("Texte extrait :", text);
-
-    const parsedData = parseVintedProfile(text);
-    console.log("Données parsées :", parsedData);
-
-    return {
-      statusCode: 200,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ success: true, data: parsedData })
-    };
-  } catch (error) {
-    console.error("Erreur :", error.message);
-    return {
-      statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: error.message })
-    };
+export default function Dashboard({ data }) {
+  // Vérifie que `data` et `data.stats` existent
+  if (!data?.stats) {
+    return <p className="text-center text-gray-500">Données non disponibles.</p>;
   }
-};
+
+  const { stats } = data;
+
+  // Gestion des cas où certaines données pourraient manquer
+  const tauxVente = stats.total_articles > 0 
+    ? ((stats.nombre_ventes / stats.total_articles) * 100).toFixed(1) 
+    : 'N/A';
+
+  return (
+    <div className="bg-gray-100 p-6 rounded-lg max-w-6xl mx-auto">
+      {/* En-tête */}
+      <div className="bg-white rounded-lg p-6 mb-6 shadow-sm">
+        <h1 className="text-2xl font-bold mb-2">{stats.nom_boutique || 'Boutique Inconnue'}</h1>
+        <div className="flex items-center gap-2">
+          <span className="text-yellow-500">★</span>
+          <span className="font-bold">{stats.note || 'N/A'}/5</span>
+          <span className="text-gray-500">({stats.nombre_ventes || 0} ventes)</span>
+        </div>
+      </div>
+
+      {/* Stats principales */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* Dressing */}
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Dressing</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span>Articles</span>
+              <span className="font-bold">{stats.total_articles || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Ventes réalisées</span>
+              <span className="font-bold">{stats.nombre_ventes || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Communauté */}
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Communauté</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span>Abonnés</span>
+              <span className="font-bold">{stats.abonnes || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Abonnements</span>
+              <span className="font-bold">{stats.abonnements || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Performance */}
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-semibold mb-4">Performance</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span>Taux de vente</span>
+              <span className="font-bold">{tauxVente}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Localisation</span>
+              <span className="font-bold">{stats.pays || 'Non spécifié'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
