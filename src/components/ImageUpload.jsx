@@ -47,7 +47,7 @@ export default function ImageUpload() {
      console.log("Réponse brute:", response);
      
      if (!response.ok) {
-       throw new Error(Erreur serveur: ${response.statusText});
+       throw new Error(`Erreur serveur: ${response.statusText}`);
      }
 
      const result = await response.json();
@@ -110,3 +110,4 @@ export default function ImageUpload() {
      </div>
    </div>
  );
+}
