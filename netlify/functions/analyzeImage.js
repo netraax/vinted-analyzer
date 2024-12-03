@@ -4,10 +4,10 @@ const sharp = require('sharp');
 // Fonction de prétraitement de l'image
 const preprocessImage = async (buffer) => {
   return await sharp(buffer)
-    .resize({ width: 800 }) // Redimensionne pour uniformiser la taille
-    .greyscale() // Convertit en niveaux de gris
-    .normalize() // Améliore le contraste
-    .threshold(150) // Ajuste le seuil pour binariser l'image
+    .resize({ width: 800 }) // Uniformiser la taille
+    .greyscale() // Convertir en niveaux de gris
+    .normalize() // Améliorer le contraste
+    .threshold(150) // Ajuster le seuil pour binarisation
     .toBuffer();
 };
 
@@ -17,17 +17,20 @@ function parseVintedProfile(text) {
     boutique: /^([\w\s-]+)/,
     articles: /(\d+)\s*(?:article|articles?)/i,
     evaluations: /(\d+)\s*(?:évaluation|éval|évals?)/i,
-    etoiles: /(\d+(?:[.,]\d+)?)\s*\/\s*5/, // Gère les virgules comme séparateurs décimaux
+    etoiles: /(\d+(?:[.,]\d+)?)\s*\/\s*5/, // Gérer les virgules comme séparateurs décimaux
     abonnes: /(\d+)\s*(?:Abonnés?|Followers?)/i,
     abonnements: /(\d+)\s*(?:Abonnements?|Following)/i,
     lieu: /(France|Espagne|Italie|Allemagne|Portugal|Belgique|Suisse|Luxembourg)/i
   };
 
+  const nombreEvaluations = parseInt(text.match(patterns.evaluations)?.[1] || '0');
+
   return {
     stats: {
       nom_boutique: text.match(patterns.boutique)?.[1]?.trim() || 'Inconnu',
       total_articles: parseInt(text.match(patterns.articles)?.[1] || '0'),
-      nombre_ventes: parseInt(text.match(patterns.evaluations)?.[1] || '0'),
+      nombre_ventes: nombreEvaluations, // Équivalence évaluations = ventes
+      nombre_commentaires: nombreEvaluations, // Équivalence évaluations = commentaires
       note: text.match(patterns.etoiles)?.[1]?.replace(',', '.') || 'N/A', // Conversion virgule -> point
       abonnes: parseInt(text.match(patterns.abonnes)?.[1] || '0'),
       abonnements: parseInt(text.match(patterns.abonnements)?.[1] || '0'),
