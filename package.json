@@ -2,8 +2,9 @@
   "name": "vinted-analyzer",
   "version": "1.0.0",
   "description": "Analyseur de profils Vinted avec OCR et visualisation de données",
-  "main": "index.js",
-  "type": "module",
+  "main": "index.cjs",
+  "module": "index.mjs",
+  "type": "commonjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
